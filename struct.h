@@ -12,45 +12,41 @@ typedef struct
 	float        		fSec;  			// seconds, 0..59.999999
 }stGrMS;
 
-// Флаги состояния системы
 typedef union stFlags
 {
 	struct{
-		int8_t cYNcor 		:1; // внутренняя коррекция
-		int8_t cIsCorExt 	:1; // внешняя коррекция (квитанция)
-		int8_t cAutoSel 	:1; // признак автовыбора цепочки
-		int8_t cPiData 		:1; // признак получения данных АПТ
+		int8_t cYNcor 		:1; 
+		int8_t cIsCorExt 	:1; 
+		int8_t cAutoSel 	:1; 
+		int8_t cPiData 		:1; 
 		int8_t				:4;
 	} bits;
 	int8_t cData;
 } stFlags;
 
-// структура для передачи в плату интерфейса ПИ
 typedef struct stPIif
 {
-	uint8_t				cWorkMode;		// '1'-ИФРНС разн.-дальн.,'2'-ИФРНС дальн., '3'-ФРНС разн.-дальн., '4'-ФРНС дальн.,
-										// (1<<6) - флаг край зоны; (1<<5) - флаг активации меню ввода начальной точки
-										// (1<<7) - флаг автоматического выбора цепочек("1" -активно)
-	uint16_t			nGRI;			// номер цепочки
-	int8_t				cMS;			// '0'-стационарная, '1'-мобильная
-	int8_t				cASUif;			// '1'-АСУ ИФРНС подключено, '0'-АСУ ИФРНС не подключено
-	int8_t				cASUf;			// '1'-АСУ ФРНС подключено, '0'-АСУ ФРНС не подключено
-	int8_t				mode[5];		// режимы работы станций
-	int8_t				cNum;			// количество станций в цепи
-	int8_t				YN[5];			// признак станций
-	float				TDif[5];		// измеренные псевдодальности по ИФРНС
-	float				TDcor[5];		// скоректированные псевдодальности по ИФРНС
-	stFlags   			cFlags;			// различные флаги
-	int8_t				cNav;			// признак решения навигационной задачи '1'-решена, '0'-не решена
-	float				fDOP;			// геометрический фактор
-	double				fB;				// широта объекта в радианах по ИФРНС
-	double				fL;				// долгота объекта в радианах по ИФРНС
-	float				fVb;			// скорость
-	float				fVl;			// скорость
-	double				fBc;			// широта объекта в радианах по спутнику
-	double				fLc;			// долгота объекта в радианах по спутнику
-	float				fAux[5];		// дополнительные параметры для различных переменных
-	uint16_t 			nCheckSum;		// контрольная сумма пакета
+	uint8_t				cWorkMode;														
+	uint16_t			nGRI;			
+	int8_t				cMS;			
+	int8_t				cASUif;			
+	int8_t				cASUf;			
+	int8_t				mode[5];		
+	int8_t				cNum;			
+	int8_t				YN[5];			
+	float				TDif[5];		
+	float				TDcor[5];		
+	stFlags   			cFlags;			
+	int8_t				cNav;			
+	float				fDOP;			
+	double				fB;				
+	double				fL;				
+	float				fVb;			
+	float				fVl;			
+	double				fBc;			
+	double				fLc;			
+	float				fAux[5];		
+	uint16_t 			nCheckSum;		
 } stPIif;
 
 struct stRcvCanOutputVer2
@@ -94,15 +90,9 @@ struct stRcvCanOutputVer2
 // структура описывающая параметры ячейки
 typedef struct
 {
-	int8_t				cWorkMode;		// '1'-ИФРНС разн.-дальн., '2'-ИФРНС дальн., '3'-ФРНС разн.-дальн., '4'-ФРНС дальн.
-	uint32_t			nTime;			// время работы изделия
-	uint32_t			nLD;			// число ретаймингов LD
-	int8_t				cASUif;			// '1'-АСУ ИФРНС подключено, '0'-АСУ ИФРНС не подключено
-	int8_t				cASUf;			// '1'-АСУ ФРНС подключено, '0'-АСУ ФРНС не подключено
-	uint8_t				cPCB;			// версия платы
-	uint16_t			nCPU;			// версия программы для процессора
-	uint16_t			nFPGA;			// версия программы для ПЛИСа
-	uint32_t			nTimeCorrOff;	// время для отключения коррекции
+	int8_t				cWorkMode;		
+	uint32_t			nTime;					
+	int8_t				cASUif;						
     const char*         hardware_ver;   // version board hardware
     const char*         cpu_hash;       // git hash version
     int                 cpu_diff;       // if we don't have changes 0, otherwise 1
@@ -131,14 +121,14 @@ typedef struct rcvPos
 typedef struct
 {
     uint16_t			nGRI;			// group repetion interval for current chain
-    float				fDOP;			// геометрический фактор
+    float				fDOP;			
     uint8_t				cNum;			// number of station in current chain
-    uint8_t				cNav;			// признак решения навигационной задачи '1'-решена, '0'-не решена
-    uint8_t  			cYNcor;			// внутренний признак коррекции '1'- включена, '0'- выключена. Переключается относительно внешнего и состояния приема спутника
+    uint8_t				cNav;			
+    uint8_t  			cYNcor;			
     uint8_t  			cIsCorExt;      // external params, '1'- correction is on, '0'-correction is off (receiving from parent board or from monitor).
     uint8_t				cAutoGRI;		// '1'-auto select GRI, '0'-otherwise
     uint8_t 			cIsGPT;         // external param, '1'-we have GTP (and GTP is valid), '0'-otherwise
-	uint8_t				cMS;			// '0'-стационарная, '1'-мобильная, '2'- взятая из структуры
+	uint8_t				cMS;			
 	uint8_t				mode[5];		// station mode
 	uint8_t 			FlagEdgeGri;
     rcvPos              curPos;         // current receiver position
