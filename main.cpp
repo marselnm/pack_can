@@ -9,53 +9,137 @@ void SetTestPIif(stPIif* sPIif);
 double ToRadians(stGrMS* sGrMS);
 void swap_double(double *d);
 void putDataInCanStream(uint8_t* outStream, uint8_t* data, uint16_t size_data);
+void generateDebugData(stBoard* p_sBoard, stRvrIFRNS* p_sIFRNS);
 
+void packRcvCanOutputVer2(stRcvCanOutputVer2* sRcvCanOutputVer2, stBoard* sBoard, stRvrIFRNS* sIFRNS);
+void unpackRcvCanOutputVer2(stRcvCanOutputVer2* sRcvCanOutputVer2, stBoard* sBoard, stRvrIFRNS* sIFRNS);
 
 
 int main()
 {
-    printf("Hello pack can\r\n");
-    uint8_t streamCanOutputVer1[176];
+    printf("Hello debug pack can\r\n");
+    stRvrIFRNS sIFRNS;
+    stBoard sBoard;
 
-    stPIif sRcvCanOutputVer1;
-    SetTestPIif(&sRcvCanOutputVer1);
-    memset(streamCanOutputVer1, 0, 176);
+    memset(&sIFRNS, 0, sizeof(stRvrIFRNS));
+    memset(&sBoard, 0, sizeof(stBoard));
+    generateDebugData(&sBoard, &sIFRNS);    //data for check pack and unpack logic
 
-    for(int i = 0; i < sizeof(stPIif); ++i)
-    {
-        printf("%X ", *((uint8_t*)(&sRcvCanOutputVer1) + i));    
-    }
-    printf("\n\r");
+    stRcvCanOutputVer2 sRcvCanOutputVer2;
+    memset(&sRcvCanOutputVer2, 0, sizeof(stRcvCanOutputVer2));
+    packRcvCanOutputVer2(&sRcvCanOutputVer2, &sBoard, &sIFRNS);
 
-    putDataInCanStream(streamCanOutputVer1, (uint8_t*)(&sRcvCanOutputVer1), sizeof(stPIif));
+    stRvrIFRNS sIFRNS1;
+    stBoard sBoard1;
+    memset(&sIFRNS1, 0, sizeof(stRvrIFRNS));
+    memset(&sBoard1, 0, sizeof(stBoard));
 
-
-    for(int i = 0; i < 22; ++i)
-    {
-        for (int j = 0; j < 8; ++j)
-        {
-            printf("%X ", streamCanOutputVer1[8*i + j]);
-
-            if (j == 7)
-            {
-                printf("\n\r");
-            }
-        }
-    }
-
-
-    std::cout << sizeof(stPIif) << std::endl;
-
-
+    unpackRcvCanOutputVer2(&sRcvCanOutputVer2, &sBoard1, &sIFRNS1);
 
     return 0;
 }
 
+void packRcvCanOutputVer2(stRcvCanOutputVer2* sRcvCanOutputVer2, stBoard* sBoard, stRvrIFRNS* sIFRNS)
+{
+    memset(sRcvCanOutputVer2, 0, sizeof(stRcvCanOutputVer2));
+    sRcvCanOutputVer2->nWorkMode |= sIFRNS->nGRI;
+    if (sIFRNS->fDOP > 63.0)
+    {
+        sRcvCanOutputVer2->nWorkMode |= (0x3F << 14);  
+    }
+    else
+    {
+        sRcvCanOutputVer2->nWorkMode |= (((uint8_t)(sIFRNS->fDOP) & 0x3F) << 14); 
+    }
+    sRcvCanOutputVer2->nWorkMode |= ((sIFRNS->cNum & 0x7) << 20);
+    sRcvCanOutputVer2->nWorkMode |= ((sBoard->cWorkMode & 0x1) << 23);
+    sRcvCanOutputVer2->nWorkMode |= ((sIFRNS->cNav & 0x1) << 25);
+    sRcvCanOutputVer2->nWorkMode |= ((sIFRNS->cYNcor & 0x1) << 26);
+    sRcvCanOutputVer2->nWorkMode |= ((sIFRNS->cIsCorExt & 0x1) << 27);
+    sRcvCanOutputVer2->nWorkMode |= ((sIFRNS->cAutoGRI & 0x1) << 28);
+    sRcvCanOutputVer2->nWorkMode |= ((sIFRNS->cIsGPT & 0x1) << 29);
+    sRcvCanOutputVer2->nWorkMode |= ((sIFRNS->cMS & 0x1) << 30);
+    sRcvCanOutputVer2->nWorkMode |= ((sBoard->cASUif & 0x1) << 31);
+
+    sRcvCanOutputVer2->nMode |= (sIFRNS->mode[0] & 0x7);
+    sRcvCanOutputVer2->nMode |= ((sIFRNS->mode[1] & 0x7) << 3);
+    sRcvCanOutputVer2->nMode |= ((sIFRNS->mode[2] & 0x7) << 6);
+    sRcvCanOutputVer2->nMode |= ((sIFRNS->mode[3] & 0x7) << 9);
+    sRcvCanOutputVer2->nMode |= ((sIFRNS->mode[4] & 0x7) << 12); 
+    sRcvCanOutputVer2->nMode |= ((sIFRNS->FlagEdgeGri & 0x1) << 15);
+
+    sRcvCanOutputVer2->rcvB = (int32_t)(sIFRNS->curPos.rcvB * (1 << 28));
+    sRcvCanOutputVer2->rcvL = (int32_t)(sIFRNS->curPos.rcvL * (1 << 28));
+
+    sRcvCanOutputVer2->nTime = (sBoard->nTime * 1000) % 86400000;  
+    sRcvCanOutputVer2->nTime |= (1 << 31);
+
+    if (sBoard->cWorkMode == 1)
+    {
+        for(int i = 0; i < 5; ++i)
+        {
+            sRcvCanOutputVer2->TD[i] = (int16_t)(sIFRNS->TDif[i] / 0.25);
+        }
+    } 
+    else
+    {
+        for(int i = 0; i < 5; ++i)
+        {
+            sRcvCanOutputVer2->TD[i] = (int16_t)(sIFRNS->TDif[i]);
+        }
+    }
+
+    for (int i = 0; i < 5; ++i)
+    {
+        sRcvCanOutputVer2->SNR[i] = ((uint8_t)sIFRNS->R[i] & 0x3F);
+        sRcvCanOutputVer2->SNR[i] |= ((sIFRNS->nST[i] & 0x1) << 6);  
+    }
+
+    sRcvCanOutputVer2->hashCPU = sBoard->cpu_hash_hex;    
+}
+
+void unpackRcvCanOutputVer2(stRcvCanOutputVer2* sRcvCanOutputVer2, stBoard* p_sBoard, stRvrIFRNS* p_sIFRNS)
+{
+    p_sBoard->cWorkMode = (sRcvCanOutputVer2->nWorkMode >> 23) & 0x1;
+    p_sBoard->cASUif = (sRcvCanOutputVer2->nWorkMode >> 31) & 0x1;
+    p_sBoard->nTime = (sRcvCanOutputVer2->nTime & 0x3FFFFFFF) / 1000;
+    p_sBoard->cpu_hash_hex = sRcvCanOutputVer2->hashCPU;
+    p_sIFRNS->nGRI = sRcvCanOutputVer2->nWorkMode & 0x3FFF;
+    p_sIFRNS->cNum = (sRcvCanOutputVer2->nWorkMode >> 20) & 0x7;
+    p_sIFRNS->fDOP = (sRcvCanOutputVer2->nWorkMode >> 14) & 0x3F;
+    p_sIFRNS->cNav = (sRcvCanOutputVer2->nWorkMode >> 25) & 0x1;
+    p_sIFRNS->cYNcor = (sRcvCanOutputVer2->nWorkMode >> 26) & 0x1;
+    p_sIFRNS->cIsCorExt = (sRcvCanOutputVer2->nWorkMode >> 27) & 0x1;
+    p_sIFRNS->cAutoGRI = (sRcvCanOutputVer2->nWorkMode >> 28) & 0x1;
+    p_sIFRNS->cIsGPT = (sRcvCanOutputVer2->nWorkMode >> 29) & 0x1;
+    p_sIFRNS->cMS = (sRcvCanOutputVer2->nWorkMode >> 30) & 0x1;
+    p_sIFRNS->mode[0] = sRcvCanOutputVer2->nMode & 0x7;
+    p_sIFRNS->mode[1] = (sRcvCanOutputVer2->nMode >> 3) & 0x7;
+    p_sIFRNS->mode[2] = (sRcvCanOutputVer2->nMode >> 6) & 0x7;
+    p_sIFRNS->mode[3] = (sRcvCanOutputVer2->nMode >> 9) & 0x7;
+    p_sIFRNS->mode[4] = (sRcvCanOutputVer2->nMode >> 12) & 0x7;
+    p_sIFRNS->FlagEdgeGri = (sRcvCanOutputVer2->nMode >> 15) & 0x1;
+    p_sIFRNS->curPos.rcvB = (double)sRcvCanOutputVer2->rcvB / (1 << 28);
+    p_sIFRNS->curPos.rcvL = (double)sRcvCanOutputVer2->rcvL / (1 << 28);
+    p_sIFRNS->TDif[0] = (float)sRcvCanOutputVer2->TD[0] * 0.25;
+    p_sIFRNS->TDif[1] = (float)sRcvCanOutputVer2->TD[1] * 0.25;
+    p_sIFRNS->TDif[2] = (float)sRcvCanOutputVer2->TD[2] * 0.25;
+    p_sIFRNS->TDif[3] = (float)sRcvCanOutputVer2->TD[3] * 0.25;
+    p_sIFRNS->TDif[4] = (float)sRcvCanOutputVer2->TD[4] * 0.25;
+    p_sIFRNS->R[0] = sRcvCanOutputVer2->SNR[0] & 0x3F;
+    p_sIFRNS->R[1] = sRcvCanOutputVer2->SNR[1] & 0x3F;
+    p_sIFRNS->R[2] = sRcvCanOutputVer2->SNR[2] & 0x3F;
+    p_sIFRNS->R[3] = sRcvCanOutputVer2->SNR[3] & 0x3F;
+    p_sIFRNS->R[4] = sRcvCanOutputVer2->SNR[4] & 0x3F;
+    p_sIFRNS->nST[0] = (sRcvCanOutputVer2->SNR[0] >> 6) & 0x1;
+    p_sIFRNS->nST[1] = (sRcvCanOutputVer2->SNR[1] >> 6) & 0x1;
+    p_sIFRNS->nST[2] = (sRcvCanOutputVer2->SNR[2] >> 6) & 0x1;
+    p_sIFRNS->nST[3] = (sRcvCanOutputVer2->SNR[3] >> 6) & 0x1;
+    p_sIFRNS->nST[4] = (sRcvCanOutputVer2->SNR[4] >> 6) & 0x1;
+}
+
 void putDataInCanStream(uint8_t* outStream, uint8_t* data, uint16_t size_data)
 {
-    uint8_t outStream1[176];
-    memset(outStream1, 0, 176);
-
     outStream[2] = (size_data & 0xFF);
     outStream[3] = (size_data >> 8) & 0xFF;
 
@@ -98,29 +182,6 @@ void putDataInCanStream(uint8_t* outStream, uint8_t* data, uint16_t size_data)
         }
     }
 }
-
-// 23:52:20.294 1 0x240 STD Rx 8 00 00 7D 00 08 27 00 00
-// 23:52:20.294 1 0x240 STD Rx 8 01 00 01 40 1F 00 01 01
-// 23:52:20.294 1 0x240 STD Rx 8 02 00 04 04 04 04 04 05
-// 23:52:20.294 1 0x240 STD Rx 8 03 00 01 01 01 01 01 00
-// 23:52:20.294 1 0x240 STD Rx 8 04 00 80 AC 43 00 00 AD
-// 23:52:20.294 1 0x240 STD Rx 8 05 00 43 00 80 AD 43 00
-// 23:52:20.294 1 0x240 STD Rx 8 06 00 00 AE 43 00 80 AE
-// 23:52:20.294 1 0x240 STD Rx 8 07 00 43 00 00 6F 44 00
-// 23:52:20.294 1 0x240 STD Rx 8 08 00 40 6F 44 00 80 6F
-// 23:52:20.294 1 0x240 STD Rx 8 09 00 44 00 C0 6F 44 00
-// 23:52:20.294 1 0x240 STD Rx 8 0A 00 00 70 44 06 01 85
-// 23:52:20.294 1 0x240 STD Rx 8 0B 00 EB 51 40 CC A7 E7
-// 23:52:20.294 1 0x240 STD Rx 8 0C 00 3F 6C E5 F8 0C CD
-// 23:52:20.294 1 0x240 STD Rx 8 0D 00 D1 FF BF 7F 10 4E
-// 23:52:20.294 1 0x240 STD Rx 8 0E 00 68 A4 70 45 41 5C
-// 23:52:20.294 1 0x240 STD Rx 8 0F 00 8F 0B 42 DA 13 F0
-// 23:52:20.294 1 0x240 STD Rx 8 10 00 3F 3B 8D 80 F2 4F
-// 23:52:20.294 1 0x240 STD Rx 8 11 00 FD FC BF C6 3B FE
-// 23:52:20.294 1 0x240 STD Rx 8 12 00 35 00 00 00 00 00
-// 23:52:20.294 1 0x240 STD Rx 8 13 00 00 80 3F 00 00 00
-// 23:52:20.294 1 0x240 STD Rx 8 14 00 40 00 00 40 40 00
-// 23:52:20.294 1 0x240 STD Rx 8 15 00 00 80 40 F9 25 01
 
 void SetTestPIif(stPIif* sPIif)
 {
@@ -202,6 +263,7 @@ void SetTestPIif(stPIif* sPIif)
 	sPIif->nCheckSum = chSum;
 }
 
+
 double ToRadians(stGrMS* sGrMS)
 {
 	return ((double)(sGrMS->nDeg * pi / 180) + (double)(sGrMS->nMin * pi / (180 * 60)) + (double)(sGrMS->fSec * pi / (180 * 3600)))*(double)sGrMS->nHemS;
@@ -221,6 +283,45 @@ void swap_double(double *d)
 	*d = p.val;
 }
 
+void generateDebugData(stBoard* p_sBoard, stRvrIFRNS* p_sIFRNS)
+{
+    p_sBoard->cWorkMode = 1;
+    p_sBoard->cASUif = 1;
+    p_sBoard->nTime = 3601;
+    p_sBoard->cpu_hash_hex = 0xabd1;
+    p_sIFRNS->nGRI = 5990;
+    p_sIFRNS->cNum = 5;
+    p_sIFRNS->fDOP = 4.67;
+    p_sIFRNS->cNav = 1;
+    p_sIFRNS->cYNcor = 1;
+    p_sIFRNS->cIsCorExt = 1;
+    p_sIFRNS->cAutoGRI = 1;
+    p_sIFRNS->cIsGPT = 1;
+    p_sIFRNS->cMS = 0;
+    p_sIFRNS->mode[0] = 5;
+    p_sIFRNS->mode[1] = 0;
+    p_sIFRNS->mode[2] = 4;
+    p_sIFRNS->mode[3] = 3;
+    p_sIFRNS->mode[4] = 1;
+    p_sIFRNS->FlagEdgeGri = 1;
+    p_sIFRNS->curPos.rcvB = pi / 4;
+    p_sIFRNS->curPos.rcvL = -pi / 8;
+    p_sIFRNS->TDif[0] = 898.43;
+    p_sIFRNS->TDif[1] = 1500.21;
+    p_sIFRNS->TDif[2] = 1254.89;
+    p_sIFRNS->TDif[3] = 2500.11;
+    p_sIFRNS->TDif[4] = 2568.76;
+    p_sIFRNS->R[0] = 32.45;
+    p_sIFRNS->R[1] = 12.34;
+    p_sIFRNS->R[2] = 15.56;
+    p_sIFRNS->R[3] = 24.78;
+    p_sIFRNS->R[4] = 55.66;
+    p_sIFRNS->nST[0] = 1;
+    p_sIFRNS->nST[1] = 1;
+    p_sIFRNS->nST[2] = 1;
+    p_sIFRNS->nST[3] = 1;
+    p_sIFRNS->nST[4] = 1;
+}
 
 
 
